@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"dex-watcher/global"
+	"dex-watcher/globals"
 	dexTypes "dex-watcher/types"
 	"dex-watcher/utils"
 	"errors"
@@ -11,34 +11,42 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func GetNames(pairAddress common.Address) (string, string, error) {
-	var res dexTypes.PairType
-	err := global.PairCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: pairAddress.String()}}).Decode(&res)
+func GetNamesForPairFromDB(pairAddress common.Address) (string, string, error) {
+	var pair dexTypes.PairType
+	err := globals.PairCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: pairAddress.String()}}).Decode(&pair)
 	if err != nil {
 		return "", "", errors.New("something went wrong while finding pair")
 	}
 
-	var token0 dexTypes.TokenType
-	err = global.TokenCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: res.Token0Address}}).Decode(&token0)
+	token0, err := GetTokenName(common.HexToAddress(pair.Token0Address))
 	if err != nil {
-		return "", "", errors.New("something went wrong while finding for token0 name")
+		return "", "", err
 	}
 
-	var token1 dexTypes.TokenType
-	err = global.TokenCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: res.Token1Address}}).Decode(&token1)
+	token1, err := GetTokenName(common.HexToAddress(pair.Token1Address))
 	if err != nil {
-		return "", "", errors.New("something went wrong while finding for token1 name")
+		return "", "", err
 	}
 
 	return token0.Name, token1.Name, nil
 }
 
-func GetAllPairAddresses() []common.Address {
+func GetTokenName(address common.Address) (dexTypes.TokenType, error) {
+	var token dexTypes.TokenType
+	err := globals.TokenCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: address}}).Decode(&token)
+	if err != nil {
+		return dexTypes.TokenType{}, errors.New("failed to finding name for token")
+	}
+
+	return token, nil
+}
+
+func GetAllPairAddressesFromDB() []common.Address {
 	var results []common.Address
 
-	cur, err := global.PairCollection.Find(context.Background(), bson.D{})
+	cur, err := globals.PairCollection.Find(context.Background(), bson.D{})
 	if err != nil {
-		utils.ColoredPrint("[!] Getting all pairs failed! -> "+err.Error(), "red")
+		utils.ColoredPrint("[!] Getting all pairs failed! -> "+err.Error(), utils.PrintColors.RED)
 		panic("can not get pairs")
 	}
 
@@ -47,7 +55,7 @@ func GetAllPairAddresses() []common.Address {
 
 		err := cur.Decode(&res)
 		if err != nil {
-			utils.ColoredPrint("[!] Failed to decode pair", "red")
+			utils.ColoredPrint("[!] Failed to decode pair", utils.PrintColors.RED)
 			continue
 		}
 

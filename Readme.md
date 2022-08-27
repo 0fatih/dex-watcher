@@ -70,21 +70,29 @@ dex-watcher --initialize 100 --listen
 
 ## Factories
 
-Currently in the `factoryList` (in `main.go`) there is only Uniswap V2 Factory's address. If you want to add/delete factories,
-you only have to change this list.
+Set factories in `.env` file (if you don't have, create one) with the `FACTORY_ADDRESSES` variable.
+This variable should be a string. If you want to enter more than one factories, enter with them a
+`,` as a seperator. For example:
+
+`FACTORY_ADDRESSES="0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f,0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"`
 
 ## Provider
 
-You have to specify your provider in the main.go (change `YOUR_PROVIDER_HERE` to your WEBSOCKET provider link).
+You can set the provider in `.env` file (if you don't have, create one) with the `PROVIDER_URI` variable.
+
+## Example `.env` File
+
+```
+PROVIDER_URI="YOUR_PROVIDER_HERE"
+
+FACTORY_ADDRESSES="0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+```
 
 # TODO
 
 I'll (maybe) do these:
 
 - Better configuration settings.
-  - Maybe there can a be config file in `~/`.
   - Add flags to manage providers and factories.
 - Calculate prices and write historically to database.
-- Support other factoriy interfaces (currently only Uniswap V2 supported).
-
-If I do these, I'll add new todos.
+- Support other factory interfaces (currently only Uniswap V2 supported).

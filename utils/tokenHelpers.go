@@ -2,7 +2,7 @@ package utils
 
 import (
 	"context"
-	"dex-watcher/global"
+	"dex-watcher/globals"
 	dexTypes "dex-watcher/types"
 	"errors"
 	"fmt"
@@ -12,11 +12,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+// NOTE: This file is under development
+
 // GetPrices returns price0 and price1 for token0 and token1
 func GetPrices(r0, r1 *big.Int, pairAddress common.Address) (float64, float64, error) {
 	var pair dexTypes.PairType
 
-	err := global.PairCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: pairAddress.String()}}).Decode(&pair)
+	err := globals.PairCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: pairAddress.String()}}).Decode(&pair)
 	if err != nil {
 		return 0, 0, errors.New("something went wrong while finding pairs")
 	}
@@ -53,9 +55,9 @@ func GetPrices(r0, r1 *big.Int, pairAddress common.Address) (float64, float64, e
 func GetDecimals(address string) (int64, error) {
 	var token dexTypes.TokenType
 
-	err := global.TokenCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: address}}).Decode(&token)
+	err := globals.TokenCollection.FindOne(context.Background(), bson.D{{Key: "address", Value: address}}).Decode(&token)
 	if err != nil {
-		ColoredPrint("[!] Finding decimals for:"+address+" failed!", "red")
+		ColoredPrint("[!] Finding decimals for:"+address+" failed!", PrintColors.RED)
 		return 0, errors.New("finding decimals failed")
 	}
 

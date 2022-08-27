@@ -5,36 +5,31 @@ package main
 import (
 	"context"
 	"dex-watcher/db"
-	"dex-watcher/global"
+	"dex-watcher/globals"
 	"dex-watcher/listener"
 	"dex-watcher/utils"
 	"flag"
-	"sync"
+	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/fatih/color"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var factoryList = []common.Address{
-	common.HexToAddress("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"), // Uniswap V2
-}
+var factoryList = []common.Address{}
 
-func main() {
-	isListen := flag.Bool("listen", false, "Start listening to the blockchain.")
-	initDB := flag.Bool("initialize", false, "Creates documents and writes initial data to database.")
-	refreshDB := flag.Bool("refresh", false, "Fetchs latest prices and writes to database for every pair.")
-	wantedPairs := flag.Int64("pairs", 5, "Pair amount per factory that you want to subscribe. If you want to subscribe to all pairs in a factory, enter 0.")
-	flag.Parse()
-
-	if *initDB && *refreshDB {
-		utils.ColoredPrint("[!] You cant initialize and refresh database at the same time!", "yellow")
-		return
+func init() {
+	// Load environment variables from .env
+	err := godotenv.Load(".env")
+	if err != nil {
+		utils.ColoredPrint("[!] Failed to load environment variables from the '.env' file.", utils.PrintColors.RED)
 	}
 
-	client, err := ethclient.Dial("YOUR_PROVIDER_HERE")
+	client, err := ethclient.Dial(os.Getenv("PROVIDER_URI"))
 	if err != nil {
 		color.Red("[!] Error: client construction failed -> ", err)
 		return
@@ -50,22 +45,38 @@ func main() {
 	color.Green("[~] Database connection successfull...")
 	defer dbConnection.Disconnect(context.Background())
 
-	global.InitGlobalVariables(client, dbConnection)
+	globals.InitGlobalVariables(client, dbConnection)
+
+	for _, factoryAddress := range strings.Split(os.Getenv("FACTORY_ADDRESSES"), ",") {
+		factoryList = append(factoryList, common.HexToAddress(factoryAddress))
+	}
+}
+
+func main() {
+	// Parse flags
+	shouldListen := flag.Bool("listen", false, "Start listening to the blockchain.")
+	initDB := flag.Bool("initialize", false, "Creates documents and writes initial data to database.")
+	refreshDB := flag.Bool("refresh", false, "Fetchs latest prices and writes to database for every pair.")
+	wantedPairs := flag.Int64("pairs", 5, "Pair amount per factory that you want to subscribe. If you want to subscribe to all pairs in a factory, enter 0.")
+	flag.Parse()
 
 	if *initDB {
-		wgInitialize := new(sync.WaitGroup)
-		wgInitialize.Add(1)
-		db.InitializeDB(factoryList, *wantedPairs, wgInitialize)
-		wgInitialize.Wait()
+		db.InitializeDB(factoryList, *wantedPairs)
 	}
 
 	if *refreshDB {
-		db.RefreshDB()
+		err := db.RefreshDB()
+		if err != nil {
+			os.Exit(1)
+		}
 	}
 
-	if *isListen {
-		listener.StartListening()
+	if *shouldListen {
+		err := listener.StartListening()
+		if err != nil {
+			os.Exit(1)
+		}
 	}
 
-	utils.ColoredPrint("\n\n[+] Done!", "green")
+	utils.ColoredPrint("\n[+] Done!", utils.PrintColors.GREEN)
 }

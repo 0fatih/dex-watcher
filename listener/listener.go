@@ -9,7 +9,7 @@ import (
 
 	"dex-watcher/contracts/pair"
 	"dex-watcher/db"
-	"dex-watcher/global"
+	"dex-watcher/globals"
 	"dex-watcher/utils"
 
 	"github.com/ethereum/go-ethereum"
@@ -19,8 +19,8 @@ import (
 	"github.com/fatih/color"
 )
 
-// listenRouter subscribes to `pairs` for new transactions
-func listenRouter(pairs []common.Address) error {
+// ListenPairs subscribes to `pairs` for new transactions
+func ListenPairs(pairs []common.Address) error {
 	color.Green("[~] Starting to listening...")
 
 	query := ethereum.FilterQuery{
@@ -28,7 +28,7 @@ func listenRouter(pairs []common.Address) error {
 	}
 
 	logs := make(chan types.Log)
-	sub, err := global.Client.SubscribeFilterLogs(context.Background(), query, logs)
+	subscription, err := globals.Client.SubscribeFilterLogs(context.Background(), query, logs)
 	if err != nil {
 		return errors.New("subscription failed")
 	}
@@ -40,7 +40,7 @@ func listenRouter(pairs []common.Address) error {
 
 	for {
 		select {
-		case err := <-sub.Err():
+		case err := <-subscription.Err():
 			color.Red("[!] Error: listening failed", err)
 			return errors.New("listening failed")
 		case vLog := <-logs:
@@ -53,22 +53,28 @@ func listenRouter(pairs []common.Address) error {
 				reserve0 := out[0].(*big.Int)
 				reserve1 := out[1].(*big.Int)
 
-				name0, name1, err := db.GetNames(vLog.Address)
+				name0, name1, err := db.GetNamesForPairFromDB(vLog.Address)
 				if err != nil {
-					utils.ColoredPrint("[!] error with getting names", "yellow")
+					utils.ColoredPrint("[!] error with getting names", utils.PrintColors.YELLOW)
 					msg := fmt.Sprintf("[+] %v reserve0: %v reserve1: %v", vLog.Address.String(), reserve0.String(), reserve1.String())
-					utils.ColoredPrint(msg, "green")
+					utils.ColoredPrint(msg, utils.PrintColors.GREEN)
 				} else {
 					msg := fmt.Sprintf("[+] %v/%v reserve0: %v reserve1: %v", name0, name1, reserve0.String(), reserve1.String())
-					utils.ColoredPrint(msg, "green")
+					utils.ColoredPrint(msg, utils.PrintColors.GREEN)
 				}
 			}
 		}
 	}
 }
 
-func StartListening() {
-	pairList := db.GetAllPairAddresses()
+func StartListening() error {
+	pairList := db.GetAllPairAddressesFromDB()
 
-	listenRouter(pairList)
+	err := ListenPairs(pairList)
+	if err != nil {
+		utils.ColoredPrint(err.Error(), utils.PrintColors.RED)
+		return err
+	}
+
+	return nil
 }

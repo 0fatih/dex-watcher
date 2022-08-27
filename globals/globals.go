@@ -1,5 +1,5 @@
 // Package global holds some global variables
-package global
+package globals
 
 import (
 	"github.com/ethereum/go-ethereum/ethclient"
